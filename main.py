@@ -89,23 +89,23 @@ class Player(Car):
             self.rect.y = 600
 
 class TrafficCar(Car):
-    def __init__(self, dir, x):
-        if dir == 0:
+    def __init__(self, dir, x, y=-100):
+        if dir == 0 or dir == 1:
             super().__init__(pygame.transform.rotate(storage.player_image,180), 6)
-        elif dir == 1:
+        elif dir == 2 or dir == 3:
             super().__init__(storage.player_image, 2)
         self.rect.x = x
-        self.rect.y = -100
+        self.rect.y = y
 
     def update(self):
         self.rect.y += self.speed
 
 class Traffic:
     def __init__(self):
-        self.cars = [TrafficCar(1, 660)]
-        self.directions = {0:[450, 560], 1:[666,770]}
+        self.cars = [TrafficCar(1, 450)]
+        self.coords = [450, 560, 666, 770]
         self.last_update = pygame.time.get_ticks()
-        self.speed = 1000
+        self.speed = 1500
         self.i = 0
 
     def update(self):
@@ -117,8 +117,10 @@ class Traffic:
         if now - self.last_update > self.speed:
             self.last_update = now
             self.i += 1
-            dir = random.randint(0, 1)
-            self.cars.append(TrafficCar(dir,self.directions[dir][random.randint(0,1)]))
+            dir = [random.choice([True, False]),random.choice([True, False]),random.choice([True, False]),random.choice([True, False])]
+            for choise in range(len(dir)):
+                if dir[choise]:
+                    self.cars.append(TrafficCar(choise,x=self.coords[choise], y=random.randint(60,200)*-1))
 
     def draw(self):
         for car in self.cars:
