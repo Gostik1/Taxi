@@ -39,50 +39,62 @@ running = True
 
 
 
-class Car:
-    def __init__(self, image, speed):
-        self.image = image
+class Car(pygame.sprite.Sprite):
+    def __init__(self, speed, images, dir):
+        pygame.sprite.Sprite.__init__(self)
+        self.images = []
+        if dir == 1:
+            for image in images:
+                self.images.append(pygame.transform.rotate(image,180))
+        elif dir == 0:
+            self.images = images
+        self.image = self.images[0]
         self.rect = self.image.get_rect()
+        self.last_sprite_update = pygame.time.get_ticks()
+        self.i = 0
         self.speed = speed
 
     def draw(self):
+        animation(self, self.images, 200, False)
         screen.blit(self.image, self.rect)
         #pygame.draw.rect(screen, GREEN, (self.rect.x, self.rect.y, self.image.get_width(),self.image.get_height()), 2)
 
 class Player(Car):
     def __init__(self):
-        super().__init__(storage.player_image, 7)
+        super().__init__(7, storage.taxi_images, 0)
         self.image_forward = self.image
         self.image_left = pygame.transform.rotate(self.image, 5)
         self.image_right = pygame.transform.rotate(self.image, -5)
         self.speedx = 0
         self.speedy = 0
         self.rect.x = 610
-        self.rect.y = 600
+        self.rect.y = 300
 
     def update(self):
+        print(self.rect.x)
         self.speedx = 0
         self.speedy = 0
         keystate = pygame.key.get_pressed()
         if any(keystate):
             if keystate[pygame.K_LEFT]:
-                self.image = self.image_left
+                #self.image = self.image_left
                 self.speedx = -1 * self.speed
             elif keystate[pygame.K_RIGHT]:
-                self.image = self.image_right
+                #self.image = self.image_right
                 self.speedx = self.speed
             if keystate[pygame.K_UP]:
                 self.speedy = -1 * self.speed
             elif keystate[pygame.K_DOWN]:
                 self.speedy = self.speed
         else:
-            self.image = self.image_forward
+            pass
+            #self.image = self.image_forward
         self.rect.y += self.speedy
         self.rect.x += self.speedx
-        if self.rect.x > 855:
-            self.rect.x = 855
-        if self.rect.x < 360:
-            self.rect.x = 360
+        if self.rect.x > 1000:
+            self.rect.x = 1000
+        if self.rect.x < 50:
+            self.rect.x = 50
         if self.rect.y < 200:
             self.rect.y = 200
         if self.rect.y > 600:
@@ -91,22 +103,22 @@ class Player(Car):
 class TrafficCar(Car):
     def __init__(self, dir, x, y=-100):
         if dir == 0 or dir == 1:
-            super().__init__(pygame.transform.rotate(storage.player_image,180), 6)
+            super().__init__(random.randint(8,9), storage.cars_images[random.randint(0,3)], 1)
         elif dir == 2 or dir == 3:
-            super().__init__(storage.player_image, 2)
+            super().__init__(2, storage.cars_images[random.randint(0,3)], 0)
         self.rect.x = x
         self.rect.y = y
 
     def update(self):
         self.rect.y += self.speed
 
+
 class Traffic:
     def __init__(self):
-        self.cars = [TrafficCar(1, 450)]
-        self.coords = [450, 560, 666, 770]
+        self.cars = []
+        self.coords = [200, 390, 615, 800]
         self.last_update = pygame.time.get_ticks()
-        self.speed = 1500
-        self.i = 0
+        self.speed = 3000
 
     def update(self):
         for car in self.cars:
@@ -116,24 +128,29 @@ class Traffic:
         now = pygame.time.get_ticks()
         if now - self.last_update > self.speed:
             self.last_update = now
-            self.i += 1
-            dir = [random.choice([True, False]),random.choice([True, False]),random.choice([True, False]),random.choice([True, False])]
-            for choise in range(len(dir)):
-                if dir[choise]:
-                    self.cars.append(TrafficCar(choise,x=self.coords[choise], y=random.randint(60,200)*-1))
+            place = random.randint(0,1)
+            car = TrafficCar(place,x=self.coords[place], y=random.randint(300,350)*-1)
+            self.cars.append(car)
+            all_cars.add(car)
+            place = random.randint(2, 3)
+            car = TrafficCar(place, x=self.coords[place], y=random.randint(300, 350) * -1)
+            self.cars.append(car)
+            all_cars.add(car)
 
     def draw(self):
         for car in self.cars:
             car.draw()
 
-class Road:
-    def __init__(self, x=370, y=0):
-        self.image = storage.road_image
-        self.rect = pygame.Rect(x, y, storage.road_rect.width, storage.road_rect.height)
+class Road(pygame.sprite.Sprite):
+    def __init__(self, x=100, y=0):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = storage.road_images[random.randint(0,9)]
+        self.rect = pygame.Rect(x, y, self.image.get_width(), self.image.get_height())
         self.speed = 5
 
     def update(self):
         self.rect.y += self.speed
+        if self.rect.
 
     def draw(self):
         screen.blit(self.image, self.rect)
@@ -141,30 +158,36 @@ class Road:
 
 class Roads:
     def __init__(self):
-        self.roads = [Road(y=-520), Road(y=0), Road(y=520)]
+        self.roads = [Road(y=-700), Road(y=0), Road(y=700)]
+        for road in self.roads:
+            all_roads.add(road)
 
     def update(self):
         for road in range(len(self.roads)):
-            if self.roads[road].rect.y > 1020:
+            if self.roads[road].rect.y > 1400 - self.roads[road].speed:
                 del self.roads[road]
-                self.roads.append(Road(y=-520))
+                road = Road(y=-700)
+                self.roads.append(road)
+                all_roads.add(road)
                 break
-            self.roads[road].update()
+        all_roads.update()
 
     def draw(self):
-        for road in self.roads:
-            road.draw()
+        all_roads.draw(screen)
 
 
 class Storage:
     def __init__(self):
-        self.player_image = load_image("player", 46, 102)
-
-        self.road_image = load_image("road", 520, 520)
-        self.road_rect = self.road_image.get_rect()
-
-        self.grass_image = load_image("grass", WIDTH, HEIGHT)
-        self.grass_rect = self.grass_image.get_rect()
+        self.taxi_images = load_images("taxi",6, 125, 250)
+        self.road_images = load_images("road",10, 1000, 700)
+        self.cars_images = [load_images("car_blue", 6, 125, 250),
+                            load_images("car_green", 6, 125, 250),
+                            load_images("car_lightblue", 6, 125, 250),
+                            load_images("car_red", 6, 125, 250)]
+        self.humans_images = [load_images("human_v1_", 7, 100, 100),
+                              load_images("human_v2_", 7, 100, 100),
+                              load_images("human_v3_", 7, 100, 100),
+                              load_images("human_v4_", 7, 100, 100),]
 
 
 class GameManager:
@@ -182,7 +205,6 @@ class GameManager:
 
     def draw(self):
         if self.in_game:
-            screen.blit(storage.grass_image, storage.grass_rect)
             roads.draw()
             traffic.draw()
             player.draw()
@@ -232,7 +254,9 @@ def load_images(name, count, scaleX, scaleY):
         array.append(load_image(str(name) + str(i + 1), scaleX, scaleY))
     return array
 
-
+all_cars = pygame.sprite.Group()
+all_roads = pygame.sprite.Group()
+all_humans = pygame.sprite.Group()
 storage = Storage()
 
 player = Player()
