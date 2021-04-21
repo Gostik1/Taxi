@@ -3,7 +3,6 @@ import sys
 
 import pygame
 import random
-from pygame import mixer
 
 # переменные для конфигурации игры
 WIDTH = 1000
@@ -28,7 +27,6 @@ def resource_path(relative):
 
 # инициализация элементов движка
 pygame.init()
-pygame.mixer.init()
 pygame.font.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Taxi")
@@ -51,8 +49,6 @@ class Car(pygame.sprite.Sprite):
         self.last_sprite_update = pygame.time.get_ticks()
         self.i = 0
         self.speed = speed
-
-        #pygame.draw.rect(screen, GREEN, (self.rect.x, self.rect.y, self.image.get_width(),self.image.get_height()), 2)
 
 class Player(Car):
     def __init__(self):
@@ -94,14 +90,13 @@ class Player(Car):
 
     def draw(self):
         screen.blit(self.image, self.rect)
-        #pygame.draw.rect(screen, GREEN, (self.rect.x, self.rect.y, self.rect.width, self.rect.height), 2)
 
 class TrafficCar(Car):
     def __init__(self, dir, x, y=-100):
         if dir == 0 or dir == 1:
             super().__init__(random.randint(8,9) * game_manager.game_speed, storage.cars_images[random.randint(0,3)], 1)
         elif dir == 2 or dir == 3:
-            super().__init__(2 * game_manager.game_speed, storage.cars_images[random.randint(0,3)], 0)
+            super().__init__(3 * game_manager.game_speed, storage.cars_images[random.randint(0,3)], 0)
         self.rect.x = x
         self.rect.y = y
 
@@ -112,7 +107,11 @@ class TrafficCar(Car):
         if self.rect.y > 800:
             all_cars.remove(self)
         if self.rect.colliderect(player.rect):
-            print("Collide with car")
+            game_manager.in_pause = True
+            game_manager.in_game = False
+            score_board.scores = 0
+            player.rect.x = 610
+            player.rect.y = 300
             self.kill()
 
 class Traffic:
@@ -171,7 +170,11 @@ class Human(pygame.sprite.Sprite):
                     score_board.scores += 2
                 self.kill()
             if self.state == 0:
-                print("-1 Life")
+                game_manager.in_pause = True
+                game_manager.in_game = False
+                score_board.scores = 0
+                player.rect.x = 610
+                player.rect.y = 300
                 self.kill()
         if self.state == 0:
             animation(self, self.images, 200, True)
@@ -186,7 +189,6 @@ class Humans:
     def update(self):
         now = pygame.time.get_ticks()
         if now - self.last_update > self.speed:
-            place = random.randint(0, 1)
             human = Human(images=storage.humans_images[random.randint(0,3)], state=random.randint(0,1)*random.randint(0,1), dir=random.randint(0,1))
             all_humans.add(human)
             self.last_update = now
@@ -212,7 +214,53 @@ class ScoreBoard:
         self.scores = 0
 
     def draw(self):
-        print_text(f"SCORES: {self.scores}", storage.font,WHITE, 50,50)
+        print_text(f"SCORES: {self.scores}", storage.font50,WHITE, 50,50)
+
+class Button:
+    def __init__(self,image, text, x, y, func):
+        self.image = image
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        self.func = func
+        self.text_surf = storage.font50.render(text, True, WHITE)
+        self.text_rect = pygame.Rect(self.rect.x + (self.image.get_width()/2-self.text_surf.get_width()/2),
+                                     self.rect.y + 10, self.text_surf.get_width(),self.text_surf.get_height())
+
+    def click(self):
+        if mouse_in_rect(self.rect):
+            self.func()
+
+    def is_focused(self, rect):
+        if mouse_in_rect(self.rect):
+            rect.y += rect.height
+            rect.height = 2
+            pygame.draw.rect(screen, WHITE, rect, 1)
+
+    def draw(self):
+        screen.blit(self.image, self.rect)
+        self.is_focused(self.text_rect.copy())
+        screen.blit(self.text_surf, self.text_rect)
+
+
+class Menu:
+    def __init__(self):
+        self.local_x = 400
+        self.local_y = 200
+        self.buttons = [Button(storage.button_image, "Countinue", self.local_x + 20, self.local_y + 20, self.to_game),
+                        Button(storage.button_image, "Exit", self.local_x + 20, self.local_y + 120, self.exit)]
+
+    def draw(self):
+        screen.blit(storage.fade_image, storage.fade_image.get_rect())
+        for button in self.buttons:
+            button.draw()
+
+    def to_game(self):
+        game_manager.in_pause = False
+        game_manager.in_game = True
+
+    def exit(self):
+        sys.exit()
 
 class Storage:
     def __init__(self):
@@ -226,56 +274,50 @@ class Storage:
                               load_images("human_v2_", 7, 100, 100),
                               load_images("human_v3_", 7, 100, 100),
                               load_images("human_v4_", 7, 100, 100),]
-        self.font = pygame.font.Font(resource_path(os.path.join("venv\\Sprites\\", "TaxiDriver.ttf")), 24)
-
-class Debug:
-    def __init__(self):
-        pass
-
-    def update(self):
-        keystate = pygame.key.get_pressed()
-        if keystate[pygame.K_m]:
-            print(pygame.mouse.get_pos())
-
-
+        self.button_image = load_image("button2", 300, 100)
+        self.fade_image = load_image("fade", WIDTH, HEIGHT)
+        self.fade_image.set_alpha(100)
+        font_path = resource_path(os.path.join("venv\\Sprites\\", "TaxiDriver.ttf"))
+        self.font10 = pygame.font.Font(font_path, 10)
+        self.font16 = pygame.font.Font(font_path, 16)
+        self.font25 = pygame.font.Font(font_path, 25)
+        self.font50 = pygame.font.Font(font_path, 50)
 
 class GameManager:
     def __init__(self):
         self.in_game = True
         self.in_pause = False
-        self.game_speed = 2
+        self.game_speed = 2 + score_board.scores/10
 
     def update(self):
-        debug.update()
-        keystate = pygame.key.get_pressed()
-        if keystate[pygame.K_ESCAPE]:
-            self.in_game = not self.in_game
-            self.in_pause = not self.in_pause
-        if self.in_game:
+        self.game_speed = 2 + score_board.scores / 10
+
+        if self.in_game and not self.in_pause:
             player.update()
             traffic.update()
             humans.update()
             all_cars.update()
             all_humans.update()
             all_roads.update()
-        if self.in_pause:
+        if self.in_pause and not self.in_game:
             pass
 
 
     def draw(self):
-        if self.in_game:
+        if self.in_game and not self.in_pause:
             screen.blit(bg, bg.get_rect())
             all_roads.draw(screen)
             all_cars.draw(screen)
             all_humans.draw(screen)
             player.draw()
             score_board.draw()
-        if self.in_pause:
+        if self.in_pause and not self.in_game:
             all_roads.draw(screen)
             all_cars.draw(screen)
             all_humans.draw(screen)
             player.draw()
             score_board.draw()
+            menu.draw()
 
 
 def animation(Entity, images, speed, endless, angle=0):
@@ -317,7 +359,8 @@ def load_image(name, scaleX, scaleY):
         print(Warning)
 
 def print_text(text, font, color, x, y):
-    screen.blit(font.render(text, True, color),pygame.Rect((x, y), (100, 100)))
+    surface = font.render(text, True, color)
+    screen.blit(surface,pygame.Rect((x, y), (surface.get_rect().width, surface.get_rect().height)))
 
 def load_images(name, count, scaleX, scaleY):
     array = []
@@ -330,13 +373,13 @@ bg = pygame.transform.scale(storage.cars_images[0][1], (2000,2000))
 all_cars = pygame.sprite.Group()
 all_roads = pygame.sprite.Group()
 all_humans = pygame.sprite.Group()
+score_board = ScoreBoard()
 game_manager = GameManager()
 for road in [Road(y=-700), Road(y=0), Road(y=700)]:
     all_roads.add(road)
 all_humans = pygame.sprite.Group()
+menu = Menu()
 
-debug = Debug()
-score_board = ScoreBoard()
 player = Player()
 traffic = Traffic()
 humans = Humans()
@@ -351,6 +394,10 @@ while running:
             if event.key == pygame.K_ESCAPE:
                 game_manager.in_game = not game_manager.in_game
                 game_manager.in_pause = not game_manager.in_pause
+        if event.type == pygame.constants.MOUSEBUTTONDOWN:
+            if game_manager.in_pause:
+                for button in menu.buttons:
+                    button.click()
     game_manager.update()
     game_manager.draw()
     pygame.display.flip()
